@@ -19,26 +19,6 @@ local panelHeight = 30
 local screenEdgePadding = 10
 local framesInitialized, initFrames
 local frameInitializedCallbacks = {}
-MDT.externalLinks = {
-  {
-    name = "GitHub",
-    tooltip = L["Open an issue on GitHub"],
-    url = "https://github.com/Nnoggie/MythicDungeonTools/issues",
-    texture = { "Interface\\AddOns\\MythicDungeonTools\\Textures\\icons", 0.76, 1, 0.75, 1 }
-  },
-  {
-    name = "Discord",
-    tooltip = L["Provide feedback in Discord"],
-    url = "https://discord.gg/tdxMPb3",
-    texture = { "Interface\\AddOns\\MythicDungeonTools\\Textures\\icons", 0.5, .75, 0.75, 1 }
-  },
-  {
-    name = "Patreon",
-    tooltip = L["Support MDT on Patreon"],
-    url = "https://www.patreon.com/nnoggie",
-    texture = { "Interface\\AddOns\\MythicDungeonTools\\Textures\\icons", 0, .25, 0.25, 0.5 }
-  },
-}
 
 BINDING_HEADER_MDT = "Mythic Dungeon Tools (MDT)"
 BINDING_NAME_MDTTOGGLE = L["Toggle MDT"]
@@ -424,6 +404,7 @@ function MDT:ShowInterfaceInternal(force)
     MDT:HideInterface()
   else
     self.main_frame:Show()
+    MDT:RequestVersionCheck()
     self:CheckCurrentZone()
     MDT:UpdateBottomText()
   end
@@ -789,7 +770,7 @@ function MDT:MakeTopBottomTextures(frame)
     MDT:ToggleVersionCheckFrame()
     MDT:ToggleToolbarTooltip(false)
   end)
-  clickArea.tooltipText = "Open changelog / version check"
+  clickArea.tooltipText = L["Open changelog / version check"]
   clickArea:SetScript("OnEnter", function()
     local widget = {
       frame = clickArea,
@@ -801,40 +782,9 @@ function MDT:MakeTopBottomTextures(frame)
   clickArea:SetScript("OnLeave", function()
     MDT:ToggleToolbarTooltip(false)
   end)
+  MDT:UpdateVersionCheckDisplay()
 
-  local externalButtonGroup = AceGUI:Create("SimpleGroup")
-  MDT:FixAceGUIShowHide(externalButtonGroup, frame)
-  externalButtonGroup.frame:ClearAllPoints()
-  externalButtonGroup.frame:SetParent(frame.bottomPanel)
-  if not externalButtonGroup.frame.SetBackdrop then
-    Mixin(externalButtonGroup.frame, BackdropTemplateMixin)
-  end
-  externalButtonGroup.frame:SetBackdropColor(0, 0, 0, 0)
-  externalButtonGroup:SetHeight(40)
-  externalButtonGroup:SetPoint("LEFT", frame.bottomLeftPanelString, "RIGHT", 0, 0)
-  externalButtonGroup:SetLayout("Flow")
-  externalButtonGroup.frame:SetFrameStrata("High")
-  externalButtonGroup.frame:SetFrameLevel(7)
-  externalButtonGroup.frame:ClearBackdrop()
-  frame.externalButtonGroup = externalButtonGroup
-
-  for _, dest in ipairs(MDT.externalLinks) do
-    local button = AceGUI:Create("Icon")
-    button:SetImage(unpack(dest.texture))
-    button:SetCallback("OnClick", function(widget, callbackName)
-      MDT:ExportString(dest.url)
-    end)
-    button.tooltipText = dest.tooltip
-    button:SetWidth(24)
-    button:SetImageSize(20, 20)
-    button:SetCallback("OnEnter", function(widget, callbackName)
-      MDT:ToggleToolbarTooltip(true, widget, "ANCHOR_TOPLEFT")
-    end)
-    button:SetCallback("OnLeave", function()
-      MDT:ToggleToolbarTooltip(false)
-    end)
-    externalButtonGroup:AddChild(button)
-  end
+  MDT:CreateExternalLinkButtons(frame)
 
   frame.statusString = frame.bottomPanel:CreateFontString("MDTStatusLabel")
   frame.statusString:SetFontObject(GameFontNormalSmall)
@@ -2229,7 +2179,10 @@ function MDT:HideAllDialogs()
     end
     if MDT.main_frame.FocusMarkerAssignmentsFrame then MDT.main_frame.FocusMarkerAssignmentsFrame:Hide() end
     if MDT.main_frame.ConfirmationFrame then MDT.main_frame.ConfirmationFrame:Hide() end
+    if MDT.versionCheckFrame then MDT.versionCheckFrame:Hide() end
+    if MDT.externalLinkCopyFrame then MDT.externalLinkCopyFrame:Hide() end
   end
+  if MDT.copyHelper then MDT.copyHelper:SmartHide() end
   if MDT.tempConfirmationFrame then MDT.tempConfirmationFrame:Hide() end
 end
 
