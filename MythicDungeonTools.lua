@@ -983,6 +983,15 @@ function MDT:MakeSidePanel(frame)
     GameTooltip:SetOwner(anchorFrame, "ANCHOR_BOTTOMLEFT", -7, anchorFrame:GetHeight() + 3)
   end
 
+  local function closeIfShown(dialog)
+    if dialog and dialog:IsShown() then
+      dialog:Hide()
+      if MDT.copyHelper then MDT.copyHelper:SmartHide() end
+      return true
+    end
+    return false
+  end
+
   ---new profile,rename,export,delete
   local buttonWidth = 75
   frame.sidePanelNewButton = AceGUI:Create("Button")
@@ -998,6 +1007,7 @@ function MDT:MakeSidePanel(frame)
   frame.sidePanelNewButton.frame:SetHighlightFontObject(fontInstance)
   frame.sidePanelNewButton.frame:SetDisabledFontObject(fontInstance)
   frame.sidePanelNewButton:SetCallback("OnClick", function(widget, callbackName, value)
+    if closeIfShown(MDT.main_frame.presetCreationFrame) then return end
     MDT:OpenNewPresetDialog()
   end)
   frame.sidePanelNewButton.frame:SetScript("OnEnter", function()
@@ -1016,6 +1026,7 @@ function MDT:MakeSidePanel(frame)
   frame.sidePanelRenameButton.frame:SetHighlightFontObject(fontInstance)
   frame.sidePanelRenameButton.frame:SetDisabledFontObject(fontInstance)
   frame.sidePanelRenameButton:SetCallback("OnClick", function(widget, callbackName, value)
+    if closeIfShown(MDT.main_frame.RenameFrame) then return end
     MDT:HideAllDialogs()
     local currentPresetName = db.presets[db.currentDungeonIdx][db.currentPreset[db.currentDungeonIdx]].text
     MDT.main_frame.RenameFrame:Show()
@@ -1048,6 +1059,7 @@ function MDT:MakeSidePanel(frame)
       print('MDT: '..L["Cannot import while in combat"])
       return
     end
+    if closeIfShown(MDT.main_frame.presetImportFrame) then return end
     MDT:OpenImportPresetDialog()
   end)
   frame.sidePanelImportButton.frame:SetScript("OnEnter", function()
@@ -1070,6 +1082,7 @@ function MDT:MakeSidePanel(frame)
       print('MDT: '..L["Cannot export while in combat"])
       return
     end
+    if closeIfShown(MDT.main_frame.ExportFrame) then return end
     if db.colorPaletteInfo.forceColorBlindMode then MDT:ColorAllPulls(_, _, _, true) end
     local preset = MDT:GetCurrentPreset()
     MDT:SetUniqueID(preset)
@@ -1115,6 +1128,7 @@ function MDT:MakeSidePanel(frame)
   frame.sidePanelDeleteButton.frame:SetDisabledFontObject(fontInstance)
   frame.sidePanelDeleteButton:SetCallback("OnClick", function(widget, callbackName, value)
     if not widget.frame:IsEnabled() then return end
+    if closeIfShown(frame.DeleteConfirmationFrame) then return end
     if IsShiftKeyDown() then
       --delete all profiles
       local numPresets = self:CountPresets()
