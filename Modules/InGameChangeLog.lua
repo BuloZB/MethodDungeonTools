@@ -2,6 +2,17 @@ local _, MDT = ...
 
 MDT.changeLog = {
   {
+    tag = "6.1.2",
+    date = "2026-05-05",
+    notes = {
+      "Added a version check and changelog window from the version text in the bottom-left corner.",
+      "Added update notifications with copyable CurseForge and Wago download links when a newer party member version is detected.",
+      "Added copyable GitHub, Discord, and Patreon link dialogs in the bottom toolbar.",
+      "Side panel buttons now close their open dialogs when clicked again.",
+      "Fixed Maisara Caverns detection for zone 2437.",
+    },
+  },
+  {
     tag = "6.1.1",
     date = "2026-04-30",
     notes = {
