@@ -1232,6 +1232,7 @@ function MDT:MakeSidePanel(frame)
   frame.FocusMarkerButton.frame:SetHighlightFontObject(fontInstance)
   frame.FocusMarkerButton.frame:SetDisabledFontObject(fontInstance)
   frame.FocusMarkerButton:SetCallback("OnClick", function()
+    if closeIfShown(MDT.main_frame.FocusMarkerAssignmentsFrame) then return end
     MDT:FocusMarker_OpenAssignments()
   end)
   frame.FocusMarkerButton.frame:SetScript("OnEnter", function()
