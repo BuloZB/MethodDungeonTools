@@ -1,0 +1,17 @@
+local _, MDT = ...
+
+MDT.changeLog = {
+  {
+    tag = "6.1.1",
+    date = "2026-04-30",
+    notes = {
+      "Added assignable Witherbark Prisoners and Captives for Maisara Caverns and Pit of Saron.",
+      "Unlinked various enemies which are often assigned individually to pulls.",
+      "Routes which are shared multiple times will now prompt the user to choose if they want to overwrite the existing route or create a copy. Repeatedly importing the same route will no longer create many copies of the same route.",
+      "Added class colored route author to route names in the route dropdown list.",
+      "Fix a rare crash when loading a route before MDT was finished initializing.",
+      "Improvements for Focus Marker Syncing",
+      "Added a temporary workaround for dropdowns affected by a Blizzard bug. Hopefully Blizzard fixes the underlying issue soon.",
+    },
+  },
+}
