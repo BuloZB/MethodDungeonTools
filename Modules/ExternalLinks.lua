@@ -79,6 +79,9 @@ function MDT:CreateCopyableLinkRow(parent, name, url, options)
   editBox.editbox:SetScript("OnKeyUp", function(_, key)
     if MDT.copyHelper and MDT.copyHelper:WasControlKeyDown() and key == "C" then
       editBox:ClearFocus()
+      if options.closeFrameOnCopy then
+        options.closeFrameOnCopy:Hide()
+      end
       MDT.copyHelper:SmartFadeOut()
     elseif MDT.copyHelper then
       MDT.copyHelper:SmartHide()
@@ -176,6 +179,7 @@ function MDT:ShowExternalLinkCopyFrame(link)
       yOffset = -2,
       copyHelperAnchor = MDT.main_frame,
       copyHelperY = 50,
+      closeFrameOnCopy = frame,
     })
   end
 
