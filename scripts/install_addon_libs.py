@@ -2,32 +2,17 @@
 """Install embedded WoW addon libraries from pkgmeta.yaml externals."""
 
 import argparse
-import html.parser
+import re
 import shutil
 import subprocess
 import sys
 import tempfile
-import urllib.error
 import urllib.parse
 import urllib.request
 from pathlib import Path
 
 
-SKIPPED_NAMES = {".git", ".github", ".pkgmeta", ".svn"}
-
-
-class DirectoryListingParser(html.parser.HTMLParser):
-    def __init__(self):
-        super().__init__()
-        self.hrefs = []
-
-    def handle_starttag(self, tag, attrs):
-        if tag != "a":
-            return
-        attrs = dict(attrs)
-        href = attrs.get("href")
-        if href:
-            self.hrefs.append(href)
+PACKAGER_RELEASE_URL = "https://raw.githubusercontent.com/BigWigsMods/packager/{ref}/release.sh"
 
 
 def read_externals(manifest_path):
@@ -77,43 +62,143 @@ def checked_target(root, relative_path):
     return target
 
 
-def run(command):
-    subprocess.run(command, check=True)
+def run(command, cwd=None):
+    subprocess.run(command, check=True, cwd=cwd)
 
 
-def copy_export(source, target):
-    if target.exists():
-        shutil.rmtree(target)
-    target.parent.mkdir(parents=True, exist_ok=True)
-    shutil.copytree(source, target, ignore=ignored_export_names)
-
-
-def ignored_export_names(_directory, names):
-    return [
-        name
-        for name in names
-        if name in SKIPPED_NAMES or name.startswith(".")
+def find_packager_bash():
+    candidates = [
+        shutil.which("bash"),
+        "/opt/homebrew/bin/bash",
+        "/usr/local/bin/bash",
     ]
-
-
-def clone_git(source_url, export_dir):
-    run(["git", "clone", "--depth", "1", source_url, str(export_dir)])
-
-
-def listing_hrefs(source_url):
-    request = urllib.request.Request(
-        source_url,
-        headers={"User-Agent": "MDT addon library installer"},
+    checked = []
+    for candidate in candidates:
+        if not candidate or candidate in checked:
+            continue
+        checked.append(candidate)
+        path = Path(candidate)
+        if not path.exists():
+            continue
+        result = subprocess.run(
+            [
+                str(path),
+                "-c",
+                "(( BASH_VERSINFO[0] > 4 || (BASH_VERSINFO[0] == 4 && BASH_VERSINFO[1] >= 3) ))",
+            ],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            check=False,
+        )
+        if result.returncode == 0:
+            return str(path)
+    raise RuntimeError(
+        "BigWigsMods/packager requires bash 4.3 or newer. Install a modern bash "
+        "(for example, `brew install bash`)."
     )
-    with urllib.request.urlopen(request) as response:
-        content_type = response.headers.get("Content-Type", "")
-        if "text/html" not in content_type:
-            raise ValueError(f"{source_url} did not return a directory listing")
-        html = response.read().decode("utf-8", errors="replace")
 
-    parser = DirectoryListingParser()
-    parser.feed(html)
-    return parser.hrefs
+
+def remove_path(path):
+    if path.is_symlink() or path.is_file():
+        path.unlink()
+    elif path.exists():
+        shutil.rmtree(path)
+
+
+def copy_packager_export(source, target):
+    remove_path(target)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copytree(source, target)
+
+
+def is_svn_external(source_url):
+    parsed = urllib.parse.urlparse(source_url)
+    if parsed.scheme == "svn":
+        return True
+    if parsed.netloc in {"svn.curseforge.com", "svn.wowace.com"}:
+        return True
+    if parsed.netloc in {"repos.curseforge.com", "repos.wowace.com"}:
+        return bool(re.search(r"/trunk(?:/|$)", parsed.path))
+    return False
+
+
+def download_packager_script(target, ref):
+    download_url(PACKAGER_RELEASE_URL.format(ref=ref), target)
+    target.chmod(0o755)
+
+
+def find_packager_libs_dir(release_dir):
+    candidates = [
+        path
+        for path in release_dir.glob("*/libs")
+        if path.is_dir()
+    ]
+    if len(candidates) != 1:
+        found = ", ".join(str(path) for path in candidates) or "none"
+        raise RuntimeError(f"Expected one packaged libs directory, found {found}")
+    return candidates[0]
+
+
+def install_with_packager(
+    root,
+    manifest_path,
+    externals,
+    dry_run=False,
+    packager_ref="v2",
+    packager_script=None,
+):
+    print(
+        f"Installing {len(externals)} addon libraries with BigWigsMods/packager@{packager_ref}",
+        flush=True,
+    )
+    for target_path, source_url in externals:
+        print(f"  {target_path} from {source_url}", flush=True)
+
+    if dry_run:
+        return
+
+    bash = find_packager_bash()
+    if shutil.which("git") is None:
+        raise RuntimeError("git is required to run BigWigsMods/packager")
+    if any(is_svn_external(source_url) for _, source_url in externals) and shutil.which("svn") is None:
+        raise RuntimeError(
+            "This pkgmeta.yaml contains SVN externals. BigWigsMods/packager uses "
+            "svn checkout for these, but svn is not installed. Install subversion "
+            "(for example, `brew install subversion`)."
+        )
+
+    with tempfile.TemporaryDirectory(prefix="mdt-packager-") as temp_name:
+        temp_dir = Path(temp_name)
+        release_dir = temp_dir / "release"
+        script_path = Path(packager_script).resolve() if packager_script else temp_dir / "release.sh"
+        if not packager_script:
+            download_packager_script(script_path, packager_ref)
+
+        run(
+            [
+                bash,
+                str(script_path),
+                "-d",  # skip uploads
+                "-l",  # skip localization replacement
+                "-z",  # skip zip creation
+                "-w",
+                "0",  # match this repo's GitHub Actions packager args
+                "-r",
+                str(release_dir),
+                "-t",
+                str(root),
+                "-m",
+                str(manifest_path),
+            ],
+            cwd=root,
+        )
+
+        packaged_libs = find_packager_libs_dir(release_dir)
+        for target_path, _source_url in externals:
+            packaged_external = packaged_libs.parent / target_path
+            if not packaged_external.exists():
+                raise RuntimeError(f"Packager did not create {target_path}")
+            copy_packager_export(packaged_external, checked_target(root, target_path))
 
 
 def download_url(source_url, target_file):
@@ -125,52 +210,6 @@ def download_url(source_url, target_file):
         target_file.parent.mkdir(parents=True, exist_ok=True)
         with target_file.open("wb") as output:
             shutil.copyfileobj(response, output)
-
-
-def export_http_directory(source_url, export_dir):
-    source_url = source_url.rstrip("/") + "/"
-    export_dir.mkdir(parents=True, exist_ok=True)
-
-    for href in listing_hrefs(source_url):
-        parsed_href = urllib.parse.urlparse(href)
-        if parsed_href.scheme or parsed_href.netloc or parsed_href.query or parsed_href.fragment:
-            continue
-        if "/" in href.rstrip("/"):
-            continue
-
-        name = urllib.parse.unquote(href.rstrip("/")).rsplit("/", 1)[-1]
-        if href in {"../", "./"} or name in SKIPPED_NAMES or name.startswith("."):
-            continue
-
-        item_url = urllib.parse.urljoin(source_url, href)
-        if href.endswith("/"):
-            export_http_directory(item_url, export_dir / name)
-        else:
-            download_url(item_url, export_dir / name)
-
-
-def install_external(root, target_path, source_url, dry_run=False):
-    target = checked_target(root, target_path)
-    print(f"Installing {target_path} from {source_url}", flush=True)
-
-    if dry_run:
-        return
-
-    with tempfile.TemporaryDirectory(prefix="mdt-lib-") as temp_name:
-        export_dir = Path(temp_name) / "export"
-        if urllib.parse.urlparse(source_url).netloc == "github.com":
-            clone_git(source_url, export_dir)
-        else:
-            try:
-                export_http_directory(source_url, export_dir)
-            except (urllib.error.URLError, ValueError) as error:
-                if shutil.which("svn") is None:
-                    raise RuntimeError(
-                        f"Could not export {source_url} over HTTP and svn is not installed"
-                    ) from error
-                run(["svn", "export", "--force", source_url, str(export_dir)])
-
-        copy_export(export_dir, target)
 
 
 def main():
@@ -187,14 +226,29 @@ def main():
         action="store_true",
         help="Print the libraries that would be installed without changing files.",
     )
+    parser.add_argument(
+        "--packager-ref",
+        default="v2",
+        help="BigWigsMods/packager ref to use. Defaults to v2.",
+    )
+    parser.add_argument(
+        "--packager-script",
+        help="Use a local release.sh instead of downloading BigWigsMods/packager.",
+    )
     args = parser.parse_args()
 
     root = Path.cwd().resolve()
     manifest_path = (root / args.manifest).resolve()
     externals = read_externals(manifest_path)
 
-    for target_path, source_url in externals:
-        install_external(root, target_path, source_url, dry_run=args.dry_run)
+    install_with_packager(
+        root,
+        manifest_path,
+        externals,
+        dry_run=args.dry_run,
+        packager_ref=args.packager_ref,
+        packager_script=args.packager_script,
+    )
 
     print(f"Installed {len(externals)} addon libraries.")
 
