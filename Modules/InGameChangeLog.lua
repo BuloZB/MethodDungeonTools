@@ -2,31 +2,31 @@ local _, MDT = ...
 
 MDT.changeLog = {
   {
-    tag = "6.1.5",
-    date = "2026-05-23",
+    tag = "6.1.12",
+    date = "2026-05-31",
     notes = {
-      "Added a missing Rotting Ghoul to the first pull area in Pit of Saron.",
-      "Added a missing Champion to the first boss area in Seat of the Triumvirate.",
-      "Removed two non-existing Radiant Swarms from Nexus Point Xenas.",
-      "Starting point route names now show the same class-colored route author names as the route dropdown.",
+      "Added a General setting to mute Xal'atath voice lines",
+      "Updated short names for Windrunner Spire, Magister's Terrace, and Nexus Point Xenas.",
+      "Adjusted Magister's Terrace G25 positions and unlinked Spellwoven Familiars",
+      "Fixed enemy count labels hiding when mouseovering enemies",
     },
   },
   {
-    tag = "6.1.4",
-    date = "2026-05-19",
+    tag = "6.1.11",
+    date = "2026-05-27",
     notes = {
-      "Added missing dormant Dreadflails to Nexus Point Xenas.",
+      "Added a Combat Logging section that can automatically toggle combat logging for selected raid and dungeon difficulties.",
+      "Added an Enemy forces in tooltips setting with multiple count and percentage display formats.",
+      "Focus Marker Assignments now only shows raid subgroup 1 while in a raid group.",
     },
   },
   {
-    tag = "6.1.3",
-    date = "2026-05-17",
+    tag = "6.1.10",
+    date = "2026-05-27",
     notes = {
-      "Split the version check window into Change Log and Party Versions tabs.",
-      "Added party member MDT versions to the Party Versions tab.",
-      "Fixed Magisters Terrace and Pit of Saron detection for additional zone IDs.",
-      "Added a missing Scrounger in Nexus Point Xenas.",
-      "Unlinked two Maisara Caverns enemies from group 91 so they can be assigned separately.",
+      "Added a Combat Logging section that can automatically toggle combat logging for selected raid and dungeon difficulties.",
+      "Added an Enemy forces in tooltips setting with multiple count and percentage display formats.",
+      "Focus Marker Assignments now only shows raid subgroup 1 while in a raid group.",
     },
   },
 }
