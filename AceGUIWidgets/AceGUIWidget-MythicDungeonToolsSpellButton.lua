@@ -1,3 +1,4 @@
+local _, MDT = ...
 local Type, Version = "MDTSpellButton", 1
 local AceGUI = LibStub and LibStub("AceGUI-3.0", true)
 local L = MDT.L
@@ -104,7 +105,6 @@ local methods = {
       local db = MDT:GetDB()
       if db.devMode then
         local enemies = MDT.dungeonEnemies[db.currentDungeonIdx]
-        local devBlip = MDT:GetCurrentDevmodeBlip()
         local enemyIdx = MDT:GetEnemyInfoEnemyIdx()
         local enemy = enemies[enemyIdx]
         if not enemy or not enemy.spells or not enemy.spells[self.spellId] then return end
@@ -112,36 +112,36 @@ local methods = {
 
         if key == "I" then
           spell.interruptible = not spell.interruptible
-          MDT:UpdateEnemyInfoFrame(enemyIdx)
+          MDT:UpdateEnemyInfoFrame()
         end
         if key == "M" then
           spell.magic = not spell.magic
-          MDT:UpdateEnemyInfoFrame(enemyIdx)
+          MDT:UpdateEnemyInfoFrame()
         end
         if key == "P" then
           spell.poison = not spell.poison
-          MDT:UpdateEnemyInfoFrame(enemyIdx)
+          MDT:UpdateEnemyInfoFrame()
         end
         if key == "D" then
           spell.disease = not spell.disease
-          MDT:UpdateEnemyInfoFrame(enemyIdx)
+          MDT:UpdateEnemyInfoFrame()
         end
         if key == "C" then
           spell.curse = not spell.curse
-          MDT:UpdateEnemyInfoFrame(enemyIdx)
+          MDT:UpdateEnemyInfoFrame()
         end
         if key == "B" then
           spell.bleed = not spell.bleed
-          MDT:UpdateEnemyInfoFrame(enemyIdx)
+          MDT:UpdateEnemyInfoFrame()
         end
         if key == "E" then
           spell.enrage = not spell.enrage
-          MDT:UpdateEnemyInfoFrame(enemyIdx)
+          MDT:UpdateEnemyInfoFrame()
         end
 
         if key == "R" then
           enemy.spells[self.spellId] = nil
-          MDT:UpdateEnemyInfoFrame(enemyIdx)
+          MDT:UpdateEnemyInfoFrame()
         end
         --print spellId
         if key == "S" then

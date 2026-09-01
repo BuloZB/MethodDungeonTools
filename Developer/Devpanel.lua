@@ -1,5 +1,5 @@
 local AceGUI = LibStub("AceGUI-3.0")
-local MDT = MDT
+local _, MDT = ...
 local db
 local tonumber, tinsert, pairs, ipairs = tonumber, table.insert, pairs, ipairs
 local UnitName, UnitGUID, UnitCreatureType, UnitHealthMax, UnitLevel = UnitName, UnitGUID, UnitCreatureType, UnitHealthMax, UnitLevel
@@ -28,29 +28,18 @@ function MDT:ToggleDevMode()
   end, "toggleDevMode")
 end
 
-local function syncDevModeCache()
-  if not db.loadCache then return end
+function MDT:PositionDevPanel(frame, maximized)
+  frame = frame or MDT.main_frame
+  if not frame or not frame.devPanel then return end
+  if maximized == nil then maximized = db.maximized end
 
-  if db.dungeonEnemies then
-    MDT.dungeonEnemies = db.dungeonEnemies
-  else
-    db.dungeonEnemies = MDT.dungeonEnemies
-  end
-
-  if db.mapPOIs then
-    MDT.mapPOIs = db.mapPOIs
-  else
-    db.mapPOIs = MDT.mapPOIs
-  end
-end
-
-local function positionDevPanel(frame)
   frame.devPanel:ClearAllPoints()
-  if db.maximized then
+  if maximized then
     frame.devPanel:SetPoint("TOPLEFT", frame, "TOPLEFT", 0, -45)
   else
-    frame.devPanel:SetPoint("TOPRIGHT", frame.topPanel, "TOPLEFT", 0, 0)
+    frame.devPanel:SetPoint("TOPRIGHT", frame.navigationSidebar, "TOPLEFT", 0, 0)
   end
+  if db.devMode then frame.devPanel.frame:Show() end
 end
 
 local function syncDevPanelShowHide(devPanel, frame)
@@ -72,7 +61,7 @@ end
 function MDT:EnableDevMode()
   db = MDT:GetDB()
   db.devMode = true
-  syncDevModeCache()
+  if not MDT:InitializeDevModeCache() then return end
 
   MDT:ShowInterfaceInternal(true)
 
@@ -87,8 +76,7 @@ function MDT:EnableDevMode()
   end
 
   if frame.devPanel then
-    positionDevPanel(frame)
-    frame.devPanel.frame:Show()
+    MDT:PositionDevPanel(frame)
   end
 
   MDT:UpdateMap()
@@ -97,6 +85,7 @@ end
 
 function MDT:DisableDevMode()
   db = MDT:GetDB()
+  MDT:SaveDevModeCache()
   db.devMode = false
 
   local frame = MDT.main_frame
@@ -158,6 +147,7 @@ function MDT:CreateDevPanel(frame)
   db = MDT:GetDB()
   frame.devPanel = AceGUI:Create("TabGroup")
   local devPanel = frame.devPanel
+  devPanel.frame:SetParent(frame)
   devPanel.frame:SetFrameStrata("HIGH")
   devPanel.frame:SetFrameLevel(50)
 
@@ -170,9 +160,9 @@ function MDT:CreateDevPanel(frame)
   )
   devPanel:SetWidth(250)
   devPanel:ClearAllPoints()
-  devPanel:SetPoint("TOPRIGHT", frame.navigationSidebar, "TOPLEFT", 0, 0)
+  MDT:PositionDevPanel(frame)
   devPanel:SetLayout("Flow")
-  devPanel.frame:Hide()
+  if not db.devMode then devPanel.frame:Hide() end
 
   syncDevPanelShowHide(devPanel, frame)
 
@@ -641,7 +631,7 @@ function MDT:CreateDevPanel(frame)
       local currentBlip = MDT:GetCurrentDevmodeBlip()
       if currentBlip then
         --encounterID
-        local encounterID, encounterName, description, displayInfo, iconImage = EJ_GetCreatureInfo(1)
+        local encounterID = EJ_GetCreatureInfo(1)
         if not encounterID then
           print("MDT: Error - Make sure to open Encounter Journal and navigate to the boss you want to add!")
           return
@@ -692,6 +682,21 @@ function MDT:CreateDevPanel(frame)
     container:AddChild(blipTextHiddenCheckbox)
 
     --clone options
+
+    local cloneForces = AceGUI:Create("EditBox")
+    cloneForces:SetLabel(MDT.L["Clone forces override (blank = default)"])
+    cloneForces:SetCallback("OnEnterPressed", function(widget, callbackName, text)
+      local currentBlip = MDT:GetCurrentDevmodeBlip()
+      if not currentBlip then return end
+      local value = tonumber(text)
+      if not text:match("^%s*$") and (not value or value < 0 or value % 1 ~= 0) then
+        widget:SetText(currentBlip.clone.count or "")
+        return
+      end
+      currentBlip.clone.count = value
+      MDT:UpdateMap()
+    end)
+    container:AddChild(cloneForces)
 
     --group
     local cloneGroup = AceGUI:Create("EditBox")
@@ -789,7 +794,9 @@ function MDT:CreateDevPanel(frame)
 
     --enter clone options into the GUI (red)
     local currentBlip = MDT:GetCurrentDevmodeBlip()
+    cloneForces:SetDisabled(not currentBlip)
     if currentBlip then
+      cloneForces:SetText(currentBlip.clone.count or "")
       cloneGroup:SetText(currentBlip.clone.g)
       currentCloneGroup = currentBlip.clone.g
       currentCloneScale = currentBlip.clone.scale
@@ -828,10 +835,7 @@ function MDT:CreateDevPanel(frame)
     local loadCacheCheckbox = AceGUI:Create("CheckBox")
     loadCacheCheckbox:SetLabel("Load Cache in devmode")
     loadCacheCheckbox:SetCallback("OnValueChanged", function(widget, callbackName, value)
-      db.loadCache = value or nil
-      if value then
-        ReloadUI()
-      end
+      MDT:SetDevModeCacheEnabled(value)
     end)
     loadCacheCheckbox:SetValue(db.loadCache)
     container:AddChild(loadCacheCheckbox)
@@ -904,7 +908,7 @@ end
 ---Adds a clone at the cursor position to the dungeon enemy table
 ---bound to hotkey and used to add new npcs to the map
 function MDT:AddCloneAtCursorPosition()
-  if not MouseIsOver(MDTScrollFrame) then return end
+  if not MDTScrollFrame:IsMouseOver() then return end
   if currentEnemyIdx then
     local data = MDT.dungeonEnemies[db.currentDungeonIdx][currentEnemyIdx]
     local cursorx, cursory = MDT:GetCursorPosition()
@@ -927,7 +931,7 @@ end
 ---AddPatrolWaypointAtCursorPosition
 ---Adds a patrol waypoint to the selected enemy
 function MDT:AddPatrolWaypointAtCursorPosition()
-  if not MouseIsOver(MDTScrollFrame) then return end
+  if not MDTScrollFrame:IsMouseOver() then return end
   local currentBlip = MDT:GetCurrentDevmodeBlip()
   if currentBlip then
     local data = MDT.dungeonEnemies[db.currentDungeonIdx][currentBlip.enemyIdx]
@@ -941,13 +945,13 @@ function MDT:AddPatrolWaypointAtCursorPosition()
     --snap onto other waypoints
     local patrolBlips = MDT:GetPatrolBlips()
     for idx, waypoint in pairs(patrolBlips) do
-      if MouseIsOver(waypoint) then
+      if waypoint:IsMouseOver() then
         cursorx = waypoint.x
         cursory = waypoint.y
       end
     end
     --snap onto blip
-    if MouseIsOver(currentBlip) then
+    if currentBlip:IsMouseOver() then
       cursorx = currentBlip.clone.x
       cursory = currentBlip.clone.y
     end
